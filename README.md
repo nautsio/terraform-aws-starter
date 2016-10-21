@@ -1,4 +1,5 @@
-Terraform AWS Mesos/Marathon infrastructure ===========================================
+Terraform AWS (container-based) infrastructure 
+============================================
 
 ## Background
 
