@@ -38,7 +38,7 @@ The Terraform documentation is pretty good for understanding the resources that 
 
 ## AWS Design
 
-This Terraform is the result of an [AWS design](https://github.com/nautsio/terraform-aws-starter/design/platform_design.pdf)
+This Terraform is the result of an [AWS design](https://github.com/nautsio/terraform-aws-starter/raw/master/design/platform_design.pdf)
 that we created before coding anything. I can highly recommend that you do this, as it will give you a clear 'dot-on-the-horizon'
 and gets everybody on the same page. I'm including the design here, not as something that you have to implement as the
 one true way, but rather to better understand the code that is in this repository. Of course I would love to hear about
