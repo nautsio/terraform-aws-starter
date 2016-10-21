@@ -1,0 +1,3 @@
+variable subdomain {
+  default = "services"
+}
