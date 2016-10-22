@@ -1,5 +1,5 @@
 .ONESHELL:
-.PHONEY: help set-env init update plan plan-destroy show graph apply output taint raw
+.PHONEY: help set-env init update plan plan-destroy show graph apply output taint-% raw
 
 ifneq ($(origin SECRETS), undefined)
 SECRET_VARS = "-var-file=$(SECRETS)"
@@ -60,7 +60,7 @@ ifeq (raw,$(firstword $(MAKECMDGOALS)))
 endif
 
 help:
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z_-]+[%]*:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
 init:
 	@rm -rf .terraform/*.tf*
@@ -79,11 +79,11 @@ update: ## Gets a newer version of the state
 plan: init update ## Runs a plan to show proposed changes.
 	@terraform plan -input=false -refresh=true -module-depth=-1 $(SECRET_VARS) -var-file=environments/$(ENV)/$(ENV).tfvars -out=terraform_plan environments/$(ENV)
 
-plan-target: init update ## Runs a plan to show proposed changes on a specific target.
-	@echo "Specifically plan a piece of Terraform data"
-	@echo "Example: module.rds.aws_route53_record.rds-master"
-	@read -p "Plan this: " DATA &&\
-		terraform plan -input=false -refresh=true -module-depth=-1 $(SECRET_VARS) -var-file=environments/$(ENV)/$(ENV).tfvars -out=terraform_plan -target=$$DATA environments/$(ENV)
+plan-target-%: init update ## Runs a plan to show proposed changes. Example: make plan-target-mymodule.rds.aws_route53_record.rds-master
+	@echo "Specifically planning to run $(@:plan-target-%=%)"
+	@terraform plan -input=false -refresh=true -module-depth=-1 $(SECRET_VARS) \
+		-var-file=environments/$(ENV)/$(ENV).tfvars -out=terraform_plan \
+		-target=$(@:plan-target-%=%) environments/$(ENV)
 
 plan-destroy: init update ## Runs a plan to show what will be destroyed
 	@terraform plan -input=false -refresh=true -module-depth=-1 -destroy $(SECRET_VARS) -var-file=environments/$(ENV)/$(ENV).tfvars environments/$(ENV)
@@ -107,22 +107,19 @@ output: init update ## Show Terraform output (optionally specify MODULE in the e
 		terraform output -module=$(MODULE);\
 	 fi
 
-taint: init update ## Specifically choose a resource to taint
-	@echo "Tainting involves specifying a module and a resource"
-	@read -p "Module: " MODULE &&\
-		read -p "Resource: " RESOURCE &&\
-		terraform taint $(SECRET_VARS) -var-file=environments/$(ENV)/$(ENV).tfvars -module=$$MODULE $$RESOURCE &&\
+taint-%: init update ## Taint resource to force re-creation on next plan/apply. Example: make taint-aws_iam_role_policy_attachment.mypolicy
+	@terraform taint $(SECRET_VARS) -var-file=environments/$(ENV)/$(ENV).tfvars \
+		-module=$(MODULE) $(@:taint-%=%) &&\
 		terraform remote push
 	@echo "You will now want to run a plan to see what changes will take place"
 
 destroy: init update ## Destroy a set of resources
 	@terraform destroy $(SECRET_VARS) -var-file=environments/$(ENV)/$(ENV).tfvars environments/$(ENV) && terraform remote push
 
-destroy-target: init update ## Specifically choose a resource target to destroy
-	@echo "Specifically destroy a piece of Terraform data"
-	@echo "Example: module.rds.aws_route53_record.rds-master"
-	@read -p "Destroy this: " DATA &&\
-		terraform destroy $(SECRET_VARS) -var-file=environments/$(ENV)/$(ENV).tfvars -target=$$DATA environments/$(ENV) &&\
+destroy-target-%: init update ## Specifically destroy resource(s). Example: make destroy-target-mymodule.rds.aws_route53_record.rds-master
+	@echo "Specifically destroying $(@:destroy-target-%=%)"
+	@terraform destroy $(SECRET_VARS) -var-file=environments/$(ENV)/$(ENV).tfvars \
+		-target=$(@:destroy-target-%=%) environments/$(ENV) &&\
 		terraform remote push
 
 raw: init update ## Initiate raw terraform commands after updating state
