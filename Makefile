@@ -22,7 +22,7 @@ env.services.id   := {{ ACCOUNT_ID }}
 env.vpn.id        := {{ ACCOUNT_ID }}
 
 # set to include stages that do not need assume
-non_assume_goals := help graph
+non_assume_goals := help graph environment
 role-name := {{ ROLE_NAME }}
 
 ifneq ($(strip $(filter-out $(.DEFAULT_GOAL) $(non_assume_goals),$(MAKECMDGOALS))),)
@@ -62,7 +62,15 @@ endif
 help:
 	@grep -E '^[a-zA-Z_-]+[%]*:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
-init:
+environment:
+	# create environment
+	@mkdir -p environments/$(ENV)
+	# ensure main environment exists
+	@touch environments/$(ENV)/$(ENV).tfvars environments/$(ENV)/$(ENV).tf
+	# copy all files in "environments" folder to ENV
+	@cp $(wildcard environments/*.tf) "environments/$(ENV)/"
+
+init: environment
 	@rm -rf .terraform/*.tf*
 	@terraform remote config \
 		-backend=S3 \
