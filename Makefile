@@ -62,12 +62,12 @@ endif
 help:
 	@grep -E '^[a-zA-Z_-]+[%]*:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
-environment:
-	# create environment
+environment: ## Create new environment. Example: ENV=test make environment
+	@if [ -z $(ENV) ]; then\
+		echo ENV was not set; exit 1;\
+	fi
 	@mkdir -p environments/$(ENV)
-	# ensure main environment exists
 	@touch environments/$(ENV)/$(ENV).tfvars environments/$(ENV)/$(ENV).tf
-	# copy all files in "environments" folder to ENV
 	@cp $(wildcard environments/*.tf) "environments/$(ENV)/"
 
 init: environment
