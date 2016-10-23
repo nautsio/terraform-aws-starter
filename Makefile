@@ -1,5 +1,5 @@
 .ONESHELL:
-.PHONEY: help set-env init update plan plan-destroy show graph apply output taint-% raw
+.PHONEY: help environment init update plan plan-destroy show graph apply output taint-% raw
 
 ifneq ($(origin SECRETS), undefined)
 SECRET_VARS = "-var-file=$(SECRETS)"
@@ -67,8 +67,8 @@ environment: ## Create new environment. Example: ENV=test make environment
 		echo ENV was not set; exit 1;\
 	fi
 	@mkdir -p environments/$(ENV)
-	@touch environments/$(ENV)/$(ENV).tfvars environments/$(ENV)/$(ENV).tf
-	@cp $(wildcard environments/*.tf) "environments/$(ENV)/"
+	@touch environments/$(ENV)/$(notdir $(ENV)).tfvars environments/$(ENV)/$(notdir $(ENV)).tf
+	@$(foreach envfile,$(wildcard environments/*.tf),cp $(envfile) environments/$(ENV)/env_$(notdir $(envfile)); )
 
 init: environment
 	@rm -rf .terraform/*.tf*
