@@ -2,3 +2,4 @@ secrets.tfvars
 .temp_credentials
 *.tfstate
 terraform_plan
+environments/**/env_*.tf

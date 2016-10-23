@@ -1,5 +1,5 @@
 .ONESHELL:
-.PHONEY: help set-env init update plan plan-destroy show graph apply output taint-% raw
+.PHONEY: help environment init update plan plan-destroy show graph apply output taint-% raw
 
 ifneq ($(origin SECRETS), undefined)
 SECRET_VARS = "-var-file=$(SECRETS)"
@@ -22,7 +22,7 @@ env.services.id   := {{ ACCOUNT_ID }}
 env.vpn.id        := {{ ACCOUNT_ID }}
 
 # set to include stages that do not need assume
-non_assume_goals := help graph
+non_assume_goals := help graph environment
 role-name := {{ ROLE_NAME }}
 
 ifneq ($(strip $(filter-out $(.DEFAULT_GOAL) $(non_assume_goals),$(MAKECMDGOALS))),)
@@ -62,7 +62,15 @@ endif
 help:
 	@grep -E '^[a-zA-Z_-]+[%]*:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
-init:
+environment: ## Create new environment. Example: ENV=test make environment
+	@if [ -z $(ENV) ]; then\
+		echo ENV was not set; exit 1;\
+	fi
+	@mkdir -p environments/$(ENV)
+	@touch environments/$(ENV)/$(notdir $(ENV)).tfvars environments/$(ENV)/$(notdir $(ENV)).tf
+	@$(foreach envfile,$(wildcard environments/*.tf),cp $(envfile) environments/$(ENV)/env_$(notdir $(envfile)); )
+
+init: environment
 	@rm -rf .terraform/*.tf*
 	@terraform remote config \
 		-backend=S3 \
