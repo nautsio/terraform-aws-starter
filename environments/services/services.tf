@@ -1,6 +1,6 @@
 resource "aws_key_pair" "services_ssh" {
   key_name   = "services_ssh"
-  public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC8XsEjh7y7RrluiN7QYzBleHfXnxJfnhqwV0n5deDYaLYWPlDTg0AiL3nuqLUG0ED7Alb+rrMqxGO0YkYqrEFD3I2AfiSfWVuFIMvHQxyK0L8hmsN4lnYhsLOnDWS81bjkKcKG84s+fk5u+FJDsdeRH6rAQaaHE2JHTLxoPG8e+YVeBG8CMudt7srVkDGi2VKQv2SVwgxocrPmmYW1F9ThyN77oo0drWolJcsVSRvGJohaTOtRS0KN6mIwgfyjNKGmgJyCRR6DugNYyZ49tT5alZZuLfSjSVleh62Zok/PGwIohQnOoU034y01v9zEB4ZBlJRT52TFVntlpTn+u37v"
+  public_key = ""
 }
 
 module "vpc" {
