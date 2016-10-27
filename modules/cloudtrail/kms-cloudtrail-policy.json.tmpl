@@ -1,0 +1,62 @@
+{
+  "Id": "Key policy for CloudTrail",
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "Enable IAM User Permissions",
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": [
+          "arn:aws:iam::${account-id}:root"
+        ]
+      },
+      "Action": "kms:*",
+      "Resource": "*"
+    },
+    {
+      "Sid": "Allow access for Key Administrators",
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": [
+          "arn:aws:iam::${account-id}:role/Admin"
+        ]
+      },
+      "Action": [
+        "kms:Create*",
+        "kms:Describe*",
+        "kms:Enable*",
+        "kms:List*",
+        "kms:Put*",
+        "kms:Update*",
+        "kms:Revoke*",
+        "kms:Disable*",
+        "kms:Get*",
+        "kms:Delete*"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "Allow CloudTrail to encrypt logs",
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "cloudtrail.amazonaws.com"
+      },
+      "Action": "kms:GenerateDataKey*",
+      "Resource": "*",
+      "Condition": {
+        "StringLike": {
+          "kms:EncryptionContext:aws:cloudtrail:arn": ${list-accounts-arn}
+        }
+      }
+    },
+    {
+      "Sid": "Allow CloudTrail to describe key",
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "cloudtrail.amazonaws.com"
+      },
+      "Action": "kms:DescribeKey",
+      "Resource": "*"
+    }
+  ]
+}
