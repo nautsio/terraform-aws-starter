@@ -1,10 +1,6 @@
 .ONESHELL:
 .PHONEY: help environment init update plan plan-destroy show graph apply output taint-% raw
 
-ifneq ($(origin SECRETS), undefined)
-SECRET_VARS = "-var-file=$(SECRETS)"
-endif
-
 # KMS keys for the statefile buckets
 keys.base       := arn:aws:kms:{{ REGION }}:{{ ACCOUNT_ID }}:key/{{ KEY_ID }}
 keys.production := arn:aws:kms:{{ REGION }}:{{ ACCOUNT_ID }}:key/{{ KEY_ID }}
@@ -22,8 +18,11 @@ env.services.id   := {{ ACCOUNT_ID }}
 env.vpn.id        := {{ ACCOUNT_ID }}
 
 # set to include stages that do not need assume
-non_assume_goals := help graph environment
+non_assume_goals := help graph environment decrypt
 role-name := {{ ROLE_NAME }}
+
+#check if ansible-vault exists
+HAS_ANSIBLE_VAULT := $(shell command -v ansible-vault 2> /dev/null)
 
 ifneq ($(strip $(filter-out $(.DEFAULT_GOAL) $(non_assume_goals),$(MAKECMDGOALS))),)
 
@@ -81,20 +80,31 @@ init: environment
 		-backend-config="kms_key_id=$(keys.$(ENV))"
 	@terraform remote pull
 
+decrypt: ##  Decrypt secret files according to ENV
+ifdef HAS_ANSIBLE_VAULT
+	$(foreach encryptedfile,$(wildcard *_$(ENV)_secrets.tfvars.ansible_vault_encrypted),ansible-vault decrypt --output=$(basename $(encryptedfile)) $(encryptedfile);)
+endif
+	@echo decrypted $(wildcard *_$(ENV)_secrets.tfvars.ansible_vault_encrypted)
+
 update: ## Gets a newer version of the state
 	@terraform get -update=true environments/$(ENV) 1>/dev/null
 
 plan: init update ## Runs a plan to show proposed changes.
-	@terraform plan -input=false -refresh=true -module-depth=-1 $(SECRET_VARS) -var-file=environments/$(ENV)/$(ENV).tfvars -out=terraform_plan environments/$(ENV)
+	@terraform plan -input=false -refresh=true -module-depth=-1 \
+		$(addprefix "-var-file=",$(wildcard *_$(ENV)_secrets.tfvars)) \
+		-var-file=environments/$(ENV)/$(ENV).tfvars -out=terraform_plan environments/$(ENV)
 
 plan-target-%: init update ## Runs a plan to show proposed changes. Example: make plan-target-mymodule.rds.aws_route53_record.rds-master
 	@echo "Specifically planning to run $(@:plan-target-%=%)"
-	@terraform plan -input=false -refresh=true -module-depth=-1 $(SECRET_VARS) \
+	@terraform plan -input=false -refresh=true -module-depth=-1 \
+		$(addprefix "-var-file=",$(wildcard *_$(ENV)_secrets.tfvars)) \
 		-var-file=environments/$(ENV)/$(ENV).tfvars -out=terraform_plan \
 		-target=$(@:plan-target-%=%) environments/$(ENV)
+	@$(foreach secretfile,$(wildcard *_$(ENV)_secrets.tfvars), rm $(secretfile);)
 
 plan-destroy: init update ## Runs a plan to show what will be destroyed
-	@terraform plan -input=false -refresh=true -module-depth=-1 -destroy $(SECRET_VARS) -var-file=environments/$(ENV)/$(ENV).tfvars environments/$(ENV)
+	@terraform plan -input=false -refresh=true -module-depth=-1 -destroy $(addprefix "-var-file=",$(wildcard *_$(ENV)_secrets.tfvars)) -var-file=environments/$(ENV)/$(ENV).tfvars environments/$(ENV)
+	@$(foreach secretfile,$(wildcard *_$(ENV)_secrets.tfvars), rm $(secretfile);)
 
 show: init
 	@terraform show -module-depth=-1
@@ -116,17 +126,21 @@ output: init update ## Show Terraform output (optionally specify MODULE in the e
 	 fi
 
 taint-%: init update ## Taint resource to force re-creation on next plan/apply. Example: make taint-aws_iam_role_policy_attachment.mypolicy
-	@terraform taint $(SECRET_VARS) -var-file=environments/$(ENV)/$(ENV).tfvars \
+	@terraform taint $(addprefix "-var-file=",$(wildcard *_$(ENV)_secrets.tfvars)) \
+		-var-file=environments/$(ENV)/$(ENV).tfvars \
 		-module=$(MODULE) $(@:taint-%=%) &&\
 		terraform remote push
+	@$(foreach secretfile,$(wildcard *_$(ENV)_secrets.tfvars), rm $(secretfile);)
 	@echo "You will now want to run a plan to see what changes will take place"
 
 destroy: init update ## Destroy a set of resources
-	@terraform destroy $(SECRET_VARS) -var-file=environments/$(ENV)/$(ENV).tfvars environments/$(ENV) && terraform remote push
+	@terraform destroy $(addprefix "-var-file=",$(wildcard *_$(ENV)_secrets.tfvars)) -var-file=environments/$(ENV)/$(ENV).tfvars environments/$(ENV) && terraform remote push
+	@$(foreach secretfile,$(wildcard *_$(ENV)_secrets.tfvars), rm $(secretfile);)
 
 destroy-target-%: init update ## Specifically destroy resource(s). Example: make destroy-target-mymodule.rds.aws_route53_record.rds-master
 	@echo "Specifically destroying $(@:destroy-target-%=%)"
-	@terraform destroy $(SECRET_VARS) -var-file=environments/$(ENV)/$(ENV).tfvars \
+	@terraform destroy $(addprefix "-var-file=",$(wildcard *_$(ENV)_secrets.tfvars)) \
+		-var-file=environments/$(ENV)/$(ENV).tfvars \
 		-target=$(@:destroy-target-%=%) environments/$(ENV) &&\
 		terraform remote push
 
